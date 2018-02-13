@@ -16,7 +16,8 @@ var aspectAry = [];
 
 var mode = "normal";
 
-
+var modeArray = ["normal", "grayscale", "brightness"]
+var modeNum = 0;
 
 loadImgs();
 
@@ -51,7 +52,7 @@ function successCallback(stream) {
 };
 
 function errorCallback(err) {
-  // alert(err);
+  alert(err);
 };
 
 function draw() {
@@ -59,8 +60,10 @@ function draw() {
   canvas.height = window.innerHeight;
   context.drawImage(video, 0, 0);
   context.drawImage(imgAry[0], 0, 0, canvas.width, canvas.width*aspectAry[0]);
-  if(mode != "normal"){
+  if(mode == "grayscale"){
   	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), Filters.grayscale);
+  }else if (mode == "brightness"){
+  	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), Filters.brightness, 40);
   }
 
   requestId = requestAnimationFrame(draw);
@@ -102,33 +105,47 @@ Filters.grayscale = function(pixels, args) {
 };
 
 
+Filters.brightness = function(pixels, adjustment) {
+  var d = pixels.data;
+  for (var i=0; i<d.length; i+=4) {
+    d[i] += adjustment;
+    d[i+1] += adjustment;
+    d[i+2] += adjustment;
+  }
+  return pixels;
+};
+
+
 function runFilter(img, filter, arg1, arg2, arg3) {
-        // var s = img.previousSibling.style;
-        // var b = c.parentNode.getElementsByTagName('button')[0];
-       
-          var idata = Filters.filterImage(filter, img, arg1, arg2, arg3);
-          // c.width = idata.width;
-          // c.height = idata.height;
-          var ctx = context;
+    // var s = img.previousSibling.style;
+    // var b = c.parentNode.getElementsByTagName('button')[0];
+   
+      var idata = Filters.filterImage(filter, img, arg1, arg2, arg3);
+      // c.width = idata.width;
+      // c.height = idata.height;
+      var ctx = context;
 
-          ctx.putImageData(idata, 0, 0);
-        
-      }
+      ctx.putImageData(idata, 0, 0);
+    
+  }
 
 
-      grayscale = function() {
-        runFilter('grayscale', Filters.grayscale);
-      }
+  grayscale = function() {
+    runFilter('grayscale', Filters.grayscale);
+  }
+
+
 
 
 
 $(".filterBtn1").on('click',function(){
 	// grayscale();
-	if(mode != "normal"){
-		mode = "normal";
-	}else {
-		mode = "grayscale";
+	modeNum ++;
+	if(modeNum >= 3){
+		modeNum = 0;
 	}
+	mode  = modeArray[modeNum];
+	
 	
 });
 
