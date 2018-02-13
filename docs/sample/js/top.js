@@ -180,7 +180,7 @@ Filters.mosaic = function(pixels, args) {
   	var h = sh;
   	var output = Filters.createImageData(w, h);
   	var dst = output.data;
-  	var size = 20;
+  	var size = 10;
 
     for (let y = 0; y < h; y += size) {
       for (let x = 0; x < w; x += size) {
@@ -331,6 +331,7 @@ $("#canvas_save").on('click',function(){
     $("#videobox").hide();
     $("#color_cell").show();
     $(".btn_save").hide();
+    $(".filterBtns").hide();
     $(".btn_save2").show();
     canvasStart();
     // image.src = dataURI;
