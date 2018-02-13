@@ -16,7 +16,7 @@ var aspectAry = [];
 
 var mode = "normal";
 
-var modeArray = ["normal", "grayscale", "brightness", "sepia", "sharpen", 'sobel']
+var modeArray = ["normal", "grayscale", "brightness", "sepia", "sharpen", 'sobel', "mosaic"];
 var modeNum = 0;
 
 loadImgs();
@@ -93,6 +93,8 @@ function draw() {
           }
           return id;
         });
+  }else if (mode == "mosaic") {
+  	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), Filters.mosaic);
   }
 
   requestId = requestAnimationFrame(draw);
@@ -161,13 +163,43 @@ Filters.sepia = function(pixels, args) {
     return pixels;
 }
 
-
 Filters.tmpCanvas = document.createElement('canvas');
 Filters.tmpCtx = Filters.tmpCanvas.getContext('2d');
 
 Filters.createImageData = function(w,h) {
   return this.tmpCtx.createImageData(w,h);
 };
+
+
+Filters.mosaic = function(pixels, args) {
+	var d = pixels.data;
+	var sw = pixels.width;
+  	var sh = pixels.height;
+
+  	var w = sw;
+  	var h = sh;
+  	var output = Filters.createImageData(w, h);
+  	var dst = output.data;
+  	var size = 20;
+
+    for (let y = 0; y < h; y += size) {
+      for (let x = 0; x < w; x += size) {
+        /**
+         * r,g,b,a の順で格納されている値を取り出す
+         */
+        let cR = d[(y * w + x) * 4],
+            cG = d[(y * w + x) * 4 + 1],
+            cB = d[(y * w + x) * 4 + 2];
+        context.fillStyle = `rgb(${cR},${cG},${cB})`;
+        context.fillRect(x, y, x + size, y + size);
+      }
+    }
+   	// context.putImageData(canvas, 0, 0);
+   output = context.getImageData(0, 0, w, h);
+    return output;
+}
+
+
 
 Filters.convolute = function(pixels, weights, opaque) {
   var side = Math.round(Math.sqrt(weights.length));
@@ -274,16 +306,7 @@ function runFilter(img, filter, arg1, arg2, arg3) {
   }
 
 
-  grayscale = function() {
-    runFilter('grayscale', Filters.grayscale);
-  }
 
-  sharpen = function() {
-    runFilter('sharpen', Filters.convolute,
-      [ 0, -1,  0,
-       -1,  5, -1,
-        0, -1,  0]);
-  }
 
 
 
