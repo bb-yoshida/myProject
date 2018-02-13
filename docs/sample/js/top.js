@@ -16,7 +16,7 @@ var aspectAry = [];
 
 var mode = "normal";
 
-var modeArray = ["normal", "grayscale", "brightness"]
+var modeArray = ["normal", "grayscale", "brightness", "sepia", "sharpen", 'sobel']
 var modeNum = 0;
 
 loadImgs();
@@ -64,6 +64,35 @@ function draw() {
   	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), Filters.grayscale);
   }else if (mode == "brightness"){
   	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), Filters.brightness, 40);
+  }else if (mode == "sepia"){
+  	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), Filters.sepia);
+  }else if (mode == "sharpen"){
+  	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), Filters.convolute,
+      [ 0, -1,  0,
+       -1,  5, -1,
+        0, -1,  0]);
+  }else if (mode == "sobel") {
+  	runFilter(context.getImageData(0, 0, canvas.width, canvas.width*aspectAry[0]), function(px) {
+          px = Filters.grayscale(px);
+          var vertical = Filters.convoluteFloat32(px,
+            [-1,-2,-1,
+              0, 0, 0,
+              1, 2, 1]);
+          var horizontal = Filters.convoluteFloat32(px,
+            [-1,0,1,
+             -2,0,2,
+             -1,0,1]);
+          var id = Filters.createImageData(vertical.width, vertical.height);
+          for (var i=0; i<id.data.length; i+=4) {
+            var v = Math.abs(vertical.data[i]);
+            id.data[i] = v;
+            var h = Math.abs(horizontal.data[i]);
+            id.data[i+1] = h
+            id.data[i+2] = (v+h)/4;
+            id.data[i+3] = 255;
+          }
+          return id;
+        });
   }
 
   requestId = requestAnimationFrame(draw);
@@ -105,6 +134,7 @@ Filters.grayscale = function(pixels, args) {
 };
 
 
+
 Filters.brightness = function(pixels, adjustment) {
   var d = pixels.data;
   for (var i=0; i<d.length; i+=4) {
@@ -113,6 +143,120 @@ Filters.brightness = function(pixels, adjustment) {
     d[i+2] += adjustment;
   }
   return pixels;
+};
+
+
+Filters.sepia = function(pixels, args) {
+	var d = pixels.data;
+    for(var i = 0;i<d.length;i+=4){
+        var brightness = 0.34*d[i] + 0.5*d[i+1] + 0.16*d[i+2];
+        // red
+        d[i] = (brightness/255)*240;
+        // green
+        d[i + 1] = (brightness/255)*200;
+        // blue
+        d[i + 2] = (brightness/255)*145;
+        
+    }
+    return pixels;
+}
+
+
+Filters.tmpCanvas = document.createElement('canvas');
+Filters.tmpCtx = Filters.tmpCanvas.getContext('2d');
+
+Filters.createImageData = function(w,h) {
+  return this.tmpCtx.createImageData(w,h);
+};
+
+Filters.convolute = function(pixels, weights, opaque) {
+  var side = Math.round(Math.sqrt(weights.length));
+  var halfSide = Math.floor(side/2);
+
+  var src = pixels.data;
+  var sw = pixels.width;
+  var sh = pixels.height;
+
+  var w = sw;
+  var h = sh;
+  var output = Filters.createImageData(w, h);
+  var dst = output.data;
+
+  var alphaFac = opaque ? 1 : 0;
+
+  for (var y=0; y<h; y++) {
+    for (var x=0; x<w; x++) {
+      var sy = y;
+      var sx = x;
+      var dstOff = (y*w+x)*4;
+      var r=0, g=0, b=0, a=0;
+      for (var cy=0; cy<side; cy++) {
+        for (var cx=0; cx<side; cx++) {
+          var scy = Math.min(sh-1, Math.max(0, sy + cy - halfSide));
+          var scx = Math.min(sw-1, Math.max(0, sx + cx - halfSide));
+          var srcOff = (scy*sw+scx)*4;
+          var wt = weights[cy*side+cx];
+          r += src[srcOff] * wt;
+          g += src[srcOff+1] * wt;
+          b += src[srcOff+2] * wt;
+          a += src[srcOff+3] * wt;
+        }
+      }
+      dst[dstOff] = r;
+      dst[dstOff+1] = g;
+      dst[dstOff+2] = b;
+      dst[dstOff+3] = a + alphaFac*(255-a);
+    }
+  }
+  return output;
+};
+
+
+if (!window.Float32Array)
+  Float32Array = Array;
+
+Filters.convoluteFloat32 = function(pixels, weights, opaque) {
+  var side = Math.round(Math.sqrt(weights.length));
+  var halfSide = Math.floor(side/2);
+
+  var src = pixels.data;
+  var sw = pixels.width;
+  var sh = pixels.height;
+
+  var w = sw;
+  var h = sh;
+  var output = {
+    width: w, height: h, data: new Float32Array(w*h*4)
+  };
+  var dst = output.data;
+
+  var alphaFac = opaque ? 1 : 0;
+
+  for (var y=0; y<h; y++) {
+    for (var x=0; x<w; x++) {
+      var sy = y;
+      var sx = x;
+      var dstOff = (y*w+x)*4;
+      var r=0, g=0, b=0, a=0;
+      for (var cy=0; cy<side; cy++) {
+        for (var cx=0; cx<side; cx++) {
+          var scy = Math.min(sh-1, Math.max(0, sy + cy - halfSide));
+          var scx = Math.min(sw-1, Math.max(0, sx + cx - halfSide));
+          var srcOff = (scy*sw+scx)*4;
+          var wt = weights[cy*side+cx];
+          r += src[srcOff] * wt;
+          g += src[srcOff+1] * wt;
+          b += src[srcOff+2] * wt;
+          a += src[srcOff+3] * wt;
+        }
+      }
+      dst[dstOff] = r;
+      dst[dstOff+1] = g;
+      dst[dstOff+2] = b;
+      dst[dstOff+3] = a + alphaFac*(255-a);
+    }
+  }
+  return output;
 };
 
 
@@ -134,6 +278,13 @@ function runFilter(img, filter, arg1, arg2, arg3) {
     runFilter('grayscale', Filters.grayscale);
   }
 
+  sharpen = function() {
+    runFilter('sharpen', Filters.convolute,
+      [ 0, -1,  0,
+       -1,  5, -1,
+        0, -1,  0]);
+  }
+
 
 
 
@@ -141,7 +292,7 @@ function runFilter(img, filter, arg1, arg2, arg3) {
 $(".filterBtn1").on('click',function(){
 	// grayscale();
 	modeNum ++;
-	if(modeNum >= 3){
+	if(modeNum >= modeArray.length){
 		modeNum = 0;
 	}
 	mode  = modeArray[modeNum];
